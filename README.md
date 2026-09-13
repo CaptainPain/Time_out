@@ -3,8 +3,14 @@
 A cinematic story-driven motorcycle game about a bored 21-year-old, his father's
 pendant, and three timelines sharing one small American town.
 
+**Genre:** drama-comedy. Dramatic or funny cutscenes full of story, each leading
+into action. The rhythm of the game is story beat → action sequence → story beat.
+
 > **Core thesis:** *Time travel isn't a puzzle mechanic that interrupts the action.
 > Time travel IS the action.*
+
+**Direction lock:** there are no boosts and no gates in this game. Escape is pure
+riding; upgrades unlock routes, never speed.
 
 ---
 
@@ -60,10 +66,13 @@ can trigger mid-gameplay — even mid-air.
 
 ## Locked design rules
 
-- **Every scene is interactive.** Cutscenes are brief transitions, never long passive
-  sequences.
-- **Dexterity is fundamental** — movement, jump, balance, ride, timing. Difficulty
-  comes from *combining* mechanics, not bigger numbers.
+- **Drama-comedy first.** Dramatic or funny cutscenes full of story, each leading
+  into action. Story beat → action sequence → story beat.
+- **No boosts, no gates.** Shift rings restore pendant charges only. Upgrades
+  improve the bike and unlock routes; they never add speed.
+- **Every scene is interactive.** Dexterity — movement, jump, balance, ride,
+  timing — is the core. Difficulty comes from *combining* mechanics, not bigger
+  numbers.
 - **Time travel can happen during gameplay, including mid-air.** Mid-air shifts
   preserve position and velocity.
 - **One world, three versions.** Same geography in 1999 / medieval / future.
@@ -139,8 +148,9 @@ can trigger mid-gameplay — even mid-air.
   It can't follow across the gap. Procedural siren + flashing lights.
 - **Pendant charges** — shifting costs one charge; start with 3, max 5; empty pendant
   plays a denied buzz.
-- **Shift rings** — one per timeline; riding through one grants a speed boost and
-  restores a charge. The future ring hangs inside a neon arch over the gap.
+- **Shift rings** — one per timeline; riding through one restores one pendant charge
+  (boost removed in v8 — there are no boosts in this game). The future ring hangs
+  inside a neon arch over the gap.
 - **Timeline wind** — medieval headwind / future tailwind / present calm changes the jump.
 - **Medieval watchtower** at x=100 — weak jumps clip it; shifting timelines avoids it.
 - **Coins** — an arc over the gap plus a landing line.
@@ -173,11 +183,11 @@ shipped task carries its release notes so the full history is always look-up-abl
 
 | Release | Theme | Headline tasks |
 |---|---|---|
-| **v8 — Ride Right** | The bike | Offroad motorcycle visual (replaces quad), rider animation, engine audio |
-| **v9 — Living Town** | The town | Lackluster Video interior, diner interior, NPCs + traffic, rooftop routes |
-| **v10 — Escape!** | The chase | Multi-cruiser AI, roadblocks, heat system, on-foot store section |
+| **v8 — Ride Right** | The bike | Offroad motorcycle visual (replaces quad), rider animation, engine audio, boost removal |
+| **v9 — Story First** | Drama-comedy | Cutscene system, funny Lackluster Video scenes, dramatic diner scenes, NPC comedy bits |
+| **v10 — Escape!** | The chase | Rooftop routes, multi-cruiser chase as story payoff, on-foot store section |
 | **v11 — The Past Demands** | Survival | Fuel & repair mechanics, material pickups, tower variants |
-| **v12 — Future Tech** | Upgrades | Bike upgrade tiers, megastructure segment, moving platforms, holo-signs |
+| **v12 — Future Tech** | Upgrades | Bike upgrade tiers (no boosts), megastructure segment, moving platforms, holo-signs |
 | **v13 — The Final Race** | The finale | Collapsing-timelines prototype, chained mid-air shifts, final jump bookend |
 
 See **Milestones** and **Issues** on GitHub for the detailed task lists, and
