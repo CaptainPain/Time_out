@@ -183,7 +183,7 @@ shipped task carries its release notes so the full history is always look-up-abl
 
 | Release | Theme | Headline tasks |
 |---|---|---|
-| **v8 — Ride Right** | The bike | Offroad motorcycle visual (replaces quad), rider animation, engine audio, boost removal |
+| **v8 — Ride Right** | The bike | Offroad motorcycle visual (replaces quad), shock physics, rider animation, engine audio, boost removal |
 | **v9 — Story First** | Drama-comedy | Cutscene system, funny Lackluster Video scenes, dramatic diner scenes, NPC comedy bits |
 | **v10 — Escape!** | The chase | Rooftop routes, multi-cruiser chase as story payoff, on-foot store section |
 | **v11 — The Past Demands** | Survival | Fuel & repair mechanics, material pickups, tower variants |
