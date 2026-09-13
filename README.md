@@ -184,10 +184,10 @@ shipped task carries its release notes so the full history is always look-up-abl
 | Release | Theme | Headline tasks |
 |---|---|---|
 | **v8 — Ride Right** | The bike | Offroad motorcycle visual (replaces quad), shock physics, rider animation, engine audio, boost removal |
-| **v9 — Story First** | Drama-comedy | Cutscene system, funny Lackluster Video scenes, dramatic diner scenes, NPC comedy bits |
+| **v9 — Story First** | Drama-comedy | Cutscene system, funny Lackluster Video scenes, dramatic diner scenes, NPC comedy bits, present-day roads |
 | **v10 — Escape!** | The chase | Rooftop routes, multi-cruiser chase as story payoff, on-foot store section |
-| **v11 — The Past Demands** | Survival | Fuel & repair mechanics, material pickups, tower variants |
-| **v12 — Future Tech** | Upgrades | Bike upgrade tiers (no boosts), megastructure segment, moving platforms, holo-signs |
+| **v11 — The Past Demands** | Survival | Fuel & repair mechanics, material pickups, tower variants, medieval terrain + era obstacles |
+| **v12 — Future Tech** | Upgrades | Bike upgrade tiers (no boosts), megastructure segment, moving platforms, holo-signs, future surfaces |
 | **v13 — The Final Race** | The finale | Collapsing-timelines prototype, chained mid-air shifts, final jump bookend |
 
 See **Milestones** and **Issues** on GitHub for the detailed task lists, and
