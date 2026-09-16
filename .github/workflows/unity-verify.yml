@@ -13,10 +13,14 @@
 #   4. Uploads screenshots + results.json as the `verify-output` artifact,
 #      which Spike downloads, inspects, and iterates on — no human needed.
 #
-# Requires three repository secrets (repo Settings -> Secrets and variables -> Actions):
-#   UNITY_LICENSE   - contents of your Unity_lic.ulf (see https://game.ci/docs/github/activation)
-#   UNITY_EMAIL     - your Unity account email
-#   UNITY_PASSWORD  - your Unity account password
+# License: ULF-only activation. The UNITY_LICENSE secret holds the contents of
+# your Unity_lic.ulf (repo Settings -> Secrets and variables -> Actions).
+# NOTE 2026-09-16: passing UNITY_EMAIL/UNITY_PASSWORD made the editor attempt a
+# UnityConnect login that Unity rejected (HTTP 400 on core.cloud.unity3d.com/api/login),
+# which poisoned activation. ULF-only lets the editor validate the license file directly.
+# If ULF-only fails with 'access token unavailable', the account login itself must be fixed
+# (2FA/SSO/special chars in password are the usual culprits) per
+# https://game.ci/docs/github/activation
 name: Unity verify (build/test/fix loop)
 
 on:
@@ -56,8 +60,6 @@ jobs:
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneLinux64
           buildMethod: TimeOutCI.Verify
