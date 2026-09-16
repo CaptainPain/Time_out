@@ -1,0 +1,73 @@
+# Unity verify — TIME OUT's autonomous build/test/fix loop.
+#
+# On every push that touches the game (or manually via workflow_dispatch):
+#   1. Spins up Unity 6000.6 in batch mode (GameCI).
+#   2. Compiles the project for real — C# errors fail the run.
+#   3. Runs TimeOutCI.Verify (Assets/Editor/TimeOutCI.cs): boots the game,
+#      taps through the menu, drives every cutscene beat of the story opening,
+#      rides a few seconds, and asserts the locked rules:
+#        - every text box <= 1/4 of screen height
+#        - text never overflows its label
+#        - camera never drops its subject (frustum check)
+#        - zero Unity errors/exceptions
+#   4. Uploads screenshots + results.json as the `verify-output` artifact,
+#      which Spike downloads, inspects, and iterates on — no human needed.
+#
+# Requires the UNITY_LICENSE repository secret (contents of a .ulf file).
+# One-time setup: run the "Request Unity activation file" workflow, activate
+# the .alf at https://license.unity3d.com/manual, paste the .ulf as the secret.
+name: Unity verify (build/test/fix loop)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-verify.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: unity-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Compile + playmode verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Run Unity verification
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          targetPlatform: StandaloneLinux64
+          buildMethod: TimeOutCI.Verify
+          # The verify method drives playmode asynchronously and exits itself.
+          manualExit: true
+          # Screenshots need a real graphics device (no -nographics).
+          enableGpu: true
+          versioning: None
+
+      - name: Upload verification output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-output
+          path: verify-output/
+          if-no-files-found: warn
