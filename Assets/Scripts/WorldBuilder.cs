@@ -63,6 +63,7 @@ public static class WorldBuilder
     };
 
     static GameObject root;
+    public static Transform TownRoot { get; private set; }
     static GameObject[] timelineGroups = new GameObject[3];
     static Renderer groundRenderer;
     static Material[] groundMats = new Material[3];
@@ -75,6 +76,11 @@ public static class WorldBuilder
         groundMats = new Material[3];
 
         root = new GameObject("World");
+
+        // Town strip root: storefronts, diner, NPCs, traffic all parent here.
+        var townGo = new GameObject("Town");
+        townGo.transform.SetParent(root.transform, false);
+        TownRoot = townGo.transform;
 
         // Sun.
         var sunGo = new GameObject("Sun");
@@ -190,7 +196,7 @@ public static class WorldBuilder
         go.name = name;
         NoColliders(go);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = size;
         go.GetComponent<Renderer>().material = mat;
         return go;
@@ -202,7 +208,7 @@ public static class WorldBuilder
         go.name = name;
         NoColliders(go);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = new Vector3(radius * 2f, height / 2f, radius * 2f);
         go.GetComponent<Renderer>().material = mat;
         return go;
@@ -213,7 +219,7 @@ public static class WorldBuilder
         // Unity has no cone primitive: use a cylinder pinched at the top.
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         var mf = go.AddComponent<MeshFilter>();
         mf.mesh = ConeMesh(radius, height);
         go.AddComponent<MeshRenderer>().material = mat;
@@ -244,7 +250,7 @@ public static class WorldBuilder
         go.name = name;
         NoColliders(go);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = scale;
         go.GetComponent<Renderer>().material = mat;
         return go;
@@ -504,19 +510,21 @@ public static class WorldBuilder
             float x = -20f + i * 48f;
             Ball("Hill" + i, new Vector3(x, -4f, 26f), new Vector3(55f, 16f, 6f), midMat, p);
         }
-        // Clouds (z=18), slow drift.
-        var cloudMat = MakeMat(new Color(1f, 1f, 1f), 0.85f);
+        // Clouds: small flat puffs, high and far behind the action (z=40) with a
+        // short slow drift, so they read as distant sky and can never cross
+        // the gameplay view no matter the camera framing.
+        var cloudMat = MakeMat(new Color(1f, 1f, 1f), 0.7f);
         for (int i = 0; i < cloudCount; i++)
         {
             var cl = new GameObject("Cloud" + i);
             cl.transform.SetParent(p, false);
-            cl.transform.position = new Vector3(i * 70f - 20f, 26f + (i % 3) * 5f, 18f);
+            cl.transform.position = new Vector3(i * 80f - 30f, 38f + (i % 3) * 5f, 40f);
             for (int b = 0; b < 3; b++)
-                Ball("Puff", new Vector3(b * 4f - 4f, b % 2, 0f), new Vector3(7f, 3.5f, 3f), cloudMat, cl.transform);
+                Ball("Puff", new Vector3(b * 3f - 3f, (b % 2) * 0.7f, 0f), new Vector3(5f, 1.7f, 1.7f), cloudMat, cl.transform);
             var mover = cl.AddComponent<PropMover>();
             mover.axis = Vector3.right;
-            mover.range = 30f;
-            mover.speed = 0.7f + i * 0.2f;
+            mover.range = 10f;
+            mover.speed = 0.4f + i * 0.15f;
         }
     }
 }

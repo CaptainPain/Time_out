@@ -29,6 +29,17 @@ public class CameraRig : MonoBehaviour
         smoothVel = Vector3.zero;
     }
 
+    // Snap the camera to on-foot Jack (inside the store). Call this when
+    // entering OnFoot so the player is NEVER left looking at the street.
+    public void SnapToOnFoot(Vector3 p)
+    {
+        transform.position = new Vector3(p.x + 1.5f, 2.6f, -8f);
+        transform.rotation = Quaternion.identity;
+        smoothVel = Vector3.zero;
+        // Force-clear the bike ref so we use on-foot follow immediately.
+        bike = null;
+    }
+
     public void AddShake(float s)
     {
         shake = Mathf.Max(shake, s);
@@ -36,13 +47,27 @@ public class CameraRig : MonoBehaviour
 
     void LateUpdate()
     {
+        // A cutscene owns the camera — yield to CameraDirector.
+        if (CutsceneManager.IsPlaying) return;
         if (target == null) return;
-        if (bike == null) bike = target.GetComponent<BikeController>();
+        // Target may change (bike <-> on-foot Jack); re-resolve the bike ref.
+        var bc = target.GetComponent<BikeController>();
+        if (bc != bike) bike = bc;
 
         Vector3 tp = target.position;
-        float look = bike != null ? Mathf.Clamp(bike.vel.x * 0.22f, 0f, 5f) : 0f;
-        Vector3 want = new Vector3(tp.x + 2.5f + look, Mathf.Max(3.2f, tp.y * 0.5f + 1.8f), -15f);
-        transform.position = Vector3.SmoothDamp(transform.position, want, ref smoothVel, 0.22f);
+        if (bike != null)
+        {
+            float look = Mathf.Clamp(bike.vel.x * 0.22f, 0f, 5f);
+            Vector3 want = new Vector3(tp.x + 2.5f + look, Mathf.Max(3.2f, tp.y * 0.5f + 1.8f), -15f);
+            transform.position = Vector3.SmoothDamp(transform.position, want, ref smoothVel, 0.22f);
+        }
+        else
+        {
+            // On-foot: tight side view, close enough to see Jack clearly.
+            // Snap faster (less smoothing) so the player is never lost.
+            Vector3 want = new Vector3(tp.x + 1.5f, 2.6f, -8f);
+            transform.position = Vector3.SmoothDamp(transform.position, want, ref smoothVel, 0.12f);
+        }
         transform.rotation = Quaternion.identity;
 
         // FOV punch on fast airtime.

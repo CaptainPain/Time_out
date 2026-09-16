@@ -19,8 +19,8 @@ public class Hud : MonoBehaviour
 {
     Text timelineLabel;
     Text speedLabel;
-    Text coinLabel;
     Text hintLabel;
+    GameObject bannerRoot;
     Text bannerLabel;
     Text cooldownLabel;
     Image cooldownFill;
@@ -28,6 +28,11 @@ public class Hud : MonoBehaviour
     float labelPop;
     GameObject menuTap;
     GameObject touchRoot;
+    // Dialogue UI (cutscenes).
+    GameObject dialogueRoot;
+    Text dialogueSpeaker;
+    Text dialogueText;
+    Text continueHint;
 
     void Awake()
     {
@@ -40,24 +45,54 @@ public class Hud : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         var root = canvasGo.transform;
 
-        timelineLabel = AddLabel(root, "", 46, Color.white, 0.5f, 1f, new Vector2(0f, -24f));
-        cooldownLabel = AddLabel(root, "PENDANT", 22, new Color(1f, 1f, 1f, 0.85f), 0.5f, 1f, new Vector2(0f, -78f));
-        var barBg = AddBar(root, new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(340f, 16f), new Color(0f, 0f, 0f, 0.45f));
-        cooldownFill = AddBar(barBg.transform, new Vector2(0f, 0.5f), Vector2.zero, new Vector2(340f, 16f), new Color(0.4f, 0.9f, 1f, 0.95f));
+        // Top status bar (header): dark translucent strip holding ALL hud text
+        // (timeline, pendant, speed, hints). Story text goes on the bottom.
+        var statusGo = new GameObject("StatusBar");
+        statusGo.transform.SetParent(root, false);
+        var srt = statusGo.AddComponent<RectTransform>();
+        srt.anchorMin = new Vector2(0f, 1f); srt.anchorMax = new Vector2(1f, 1f);
+        srt.pivot = new Vector2(0.5f, 1f);
+        srt.anchoredPosition = Vector2.zero;
+        srt.sizeDelta = new Vector2(0f, 96f);
+        var sbg = statusGo.AddComponent<Image>();
+        sbg.color = new Color(0f, 0f, 0f, 0.55f);
+        sbg.raycastTarget = false;
+
+        timelineLabel = AddLabel(statusGo.transform, "", 34, Color.white, 0f, 0.5f, new Vector2(24f, 0f));
+        timelineLabel.alignment = TextAnchor.MiddleLeft;
+        cooldownLabel = AddLabel(statusGo.transform, "PENDANT", 20, new Color(1f, 1f, 1f, 0.85f), 0.5f, 0.5f, new Vector2(-190f, 10f));
+        var barBg = AddBar(statusGo.transform, new Vector2(0.5f, 0.5f), new Vector2(-20f, -12f), new Vector2(340f, 14f), new Color(0f, 0f, 0f, 0.45f));
+        cooldownFill = AddBar(barBg.transform, new Vector2(0f, 0.5f), Vector2.zero, new Vector2(340f, 14f), new Color(0.4f, 0.9f, 1f, 0.95f));
         var fillRt = cooldownFill.rectTransform;
         fillRt.anchorMin = new Vector2(0f, 0f);
         fillRt.anchorMax = new Vector2(0f, 1f);
         fillRt.pivot = new Vector2(0f, 0.5f);
         fillRt.anchoredPosition = Vector2.zero;
 
-        speedLabel = AddLabel(root, "", 36, Color.white, 0f, 0f, new Vector2(36f, 30f));
-        speedLabel.alignment = TextAnchor.LowerLeft;
-        coinLabel = AddLabel(root, "", 36, Color.white, 1f, 1f, new Vector2(-36f, -24f));
-        coinLabel.alignment = TextAnchor.UpperRight;
+        speedLabel = AddLabel(statusGo.transform, "", 30, Color.white, 1f, 0.5f, new Vector2(-24f, 0f));
+        speedLabel.alignment = TextAnchor.MiddleRight;
 
-        hintLabel = AddLabel(root, "", 22, new Color(1f, 1f, 1f, 0.75f), 0.5f, 0f, new Vector2(0f, 24f));
-        bannerLabel = AddLabel(root, "", 84, Color.white, 0.5f, 0.5f, Vector2.zero);
-        bannerLabel.gameObject.SetActive(false);
+        hintLabel = AddLabel(statusGo.transform, "", 20, new Color(1f, 1f, 1f, 0.9f), 0.5f, 0.5f, new Vector2(180f, 10f));
+        hintLabel.alignment = TextAnchor.MiddleCenter;
+
+        // Banner: compact panel with dark background (max 1/4 screen).
+        // ALL banner text lives inside this box — nothing floats over the sky.
+        // Positioned at the bottom of the screen, above the status bar.
+        bannerRoot = new GameObject("Banner");
+        bannerRoot.transform.SetParent(root, false);
+        var brt = bannerRoot.AddComponent<RectTransform>();
+        brt.anchorMin = new Vector2(0f, 0f); brt.anchorMax = new Vector2(1f, 0f);
+        brt.pivot = new Vector2(0.5f, 0f);
+        brt.anchoredPosition = new Vector2(0f, 8f);
+        brt.sizeDelta = new Vector2(1400f, 220f);
+        var bbg = bannerRoot.AddComponent<Image>();
+        bbg.color = new Color(0f, 0f, 0f, 0.72f);
+        bbg.raycastTarget = false;
+        bannerLabel = AddLabel(bannerRoot.transform, "", 52, Color.white, 0.5f, 0.5f, Vector2.zero);
+        var blrt = bannerLabel.rectTransform;
+        blrt.anchorMin = Vector2.zero; blrt.anchorMax = Vector2.one;
+        blrt.offsetMin = Vector2.zero; blrt.offsetMax = Vector2.zero;
+        bannerRoot.SetActive(false);
 
         // Tap-to-start layer for the menu.
         menuTap = new GameObject("MenuTap");
@@ -69,7 +104,13 @@ public class Hud : MonoBehaviour
         tapRt.anchorMin = Vector2.zero; tapRt.anchorMax = Vector2.one;
         tapRt.offsetMin = Vector2.zero; tapRt.offsetMax = Vector2.zero;
         var tapBtn = menuTap.AddComponent<Button>();
-        tapBtn.onClick.AddListener(() => { if (GameManager.State == GameState.Menu) GameManager.Instance.AdvanceMenu(); });
+        tapBtn.onClick.AddListener(() => {
+            if (GameManager.State == GameState.Menu) GameManager.Instance.AdvanceMenu();
+            else if (GameManager.State == GameState.Cutscene && CutsceneManager.Instance != null) CutsceneManager.Instance.Advance();
+        });
+
+        BuildDialogue(root);
+        BuildSkip(root);
 
         if (Application.isMobilePlatform) BuildTouch(root);
         else hintLabel.text = "W/S throttle · A/D lean · SPACE time-jump · R restart";
@@ -117,6 +158,9 @@ public class Hud : MonoBehaviour
         labelPop = 1f;
         AudioDirector.PlayShift();
         WorldBuilder.ApplyTimeline(t);
+        NPCManager.ApplyTimeline(t);
+        TrafficManager.ApplyTimeline(t);
+        MomsDiner.ApplyTimeline(t);
     }
 
     public void RefreshTimelineLabel()
@@ -129,13 +173,89 @@ public class Hud : MonoBehaviour
     {
         if (string.IsNullOrEmpty(text))
         {
-            bannerLabel.gameObject.SetActive(false);
+            bannerRoot.SetActive(false);
             bannerTimer = 0f;
             return;
         }
         bannerLabel.text = text;
-        bannerLabel.gameObject.SetActive(true);
+        bannerRoot.SetActive(true);
         bannerTimer = dur;
+    }
+
+    void BuildDialogue(Transform root)
+    {
+        dialogueRoot = new GameObject("Dialogue");
+        dialogueRoot.transform.SetParent(root, false);
+        var drt = dialogueRoot.AddComponent<RectTransform>();
+        // Bottom of screen: story text box. Translucent black, max 1/4 height.
+        drt.anchorMin = new Vector2(0f, 0f); drt.anchorMax = new Vector2(1f, 0f);
+        drt.pivot = new Vector2(0.5f, 0f);
+        drt.anchoredPosition = new Vector2(0f, 8f);
+        drt.sizeDelta = new Vector2(1600f, 140f);
+        var bg = dialogueRoot.AddComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.72f);
+        bg.raycastTarget = false;
+
+        dialogueSpeaker = AddLabel(dialogueRoot.transform, "", 24, new Color(1f, 0.85f, 0.4f), 0f, 1f, new Vector2(40f, -12f));
+        dialogueSpeaker.alignment = TextAnchor.UpperLeft;
+        dialogueText = AddLabel(dialogueRoot.transform, "", 27, Color.white, 0f, 1f, new Vector2(40f, -48f));
+        dialogueText.alignment = TextAnchor.UpperLeft;
+        var trt = dialogueText.rectTransform;
+        trt.sizeDelta = new Vector2(1520f, 90f);
+
+        continueHint = AddLabel(root, "TAP TO CONTINUE  ·  ENTER", 18, new Color(1f, 1f, 1f, 0.6f), 1f, 0f, new Vector2(-40f, 112f));
+        continueHint.alignment = TextAnchor.LowerRight;
+        continueHint.gameObject.SetActive(false);
+
+        dialogueRoot.SetActive(false);
+    }
+
+    GameObject skipBtn;
+    void BuildSkip(Transform root)
+    {
+        skipBtn = new GameObject("SkipBtn");
+        skipBtn.transform.SetParent(root, false);
+        var img = skipBtn.AddComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, 0.5f);
+        img.raycastTarget = true;
+        var rt = skipBtn.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(1f, 1f);
+        rt.anchoredPosition = new Vector2(-24f, -24f);
+        rt.sizeDelta = new Vector2(160f, 64f);
+        var label = UIUtil.MakeLabel("SKIP →", 28, Color.white);
+        label.transform.SetParent(skipBtn.transform, false);
+        var lrt = label.rectTransform;
+        lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+        var btn = skipBtn.AddComponent<Button>();
+        btn.onClick.AddListener(() => {
+            if (GameManager.State == GameState.Cutscene && CutsceneManager.Instance != null)
+                CutsceneManager.Instance.Skip();
+            else if (GameManager.State == GameState.OnFoot && GameManager.Instance != null)
+                GameManager.Instance.StartRun();
+        });
+        skipBtn.SetActive(false);
+    }
+
+    public void ShowDialogue(string speaker, string text)
+    {
+        dialogueSpeaker.text = speaker ?? "";
+        dialogueSpeaker.gameObject.SetActive(!string.IsNullOrEmpty(speaker));
+        dialogueText.text = text ?? "";
+        dialogueRoot.SetActive(true);
+        SetContinueHint(true);
+    }
+
+    public void HideDialogue()
+    {
+        dialogueRoot.SetActive(false);
+        SetContinueHint(false);
+    }
+
+    public void SetContinueHint(bool on)
+    {
+        if (continueHint != null) continueHint.gameObject.SetActive(on);
     }
 
     void BuildTouch(Transform root)
@@ -193,13 +313,17 @@ public class Hud : MonoBehaviour
     void Update()
     {
         var gm = GameManager.Instance;
-        menuTap.SetActive(gm != null && GameManager.State == GameState.Menu);
+        // Tap layer is active for menu AND cutscenes (tap to advance).
+        menuTap.SetActive(gm != null && (GameManager.State == GameState.Menu || GameManager.State == GameState.Cutscene));
+        // Skip button: cutscenes and on-foot sections can jump straight to the ride.
+        if (skipBtn != null)
+            skipBtn.SetActive(gm != null && (GameManager.State == GameState.Cutscene || GameManager.State == GameState.OnFoot));
         if (touchRoot != null) touchRoot.SetActive(GameManager.State == GameState.Playing);
 
         if (bannerTimer > 0f)
         {
             bannerTimer -= Time.unscaledDeltaTime;
-            if (bannerTimer <= 0f) bannerLabel.gameObject.SetActive(false);
+            if (bannerTimer <= 0f) bannerRoot.SetActive(false);
         }
         if (labelPop > 0f)
         {
@@ -211,7 +335,7 @@ public class Hud : MonoBehaviour
         frt.sizeDelta = new Vector2(340f * Mathf.Clamp01(chargeFrac), 16f);
         cooldownLabel.text = TimelineManager.Charges > 0
             ? "PENDANT ×" + TimelineManager.Charges
-            : "PENDANT DRAINED — thread a ring";
+            : "PENDANT DRAINED — RECHARGING";
 
         if (gm != null && gm.bike != null && GameManager.State == GameState.Playing)
         {
@@ -227,11 +351,20 @@ public class Hud : MonoBehaviour
             }
             hintLabel.text = ctx;
         }
+        else if (GameManager.State == GameState.OnFoot)
+        {
+            speedLabel.text = "";
+            hintLabel.text = "A/D WALK · GO TO THE COUNTER →";
+        }
+        else if (GameManager.State == GameState.Cutscene)
+        {
+            speedLabel.text = "";
+            hintLabel.text = "TAP TO CONTINUE · SKIP →";
+        }
         else if (GameManager.State != GameState.Playing)
         {
             speedLabel.text = "";
             hintLabel.text = "";
         }
-        coinLabel.text = "COINS " + GameData.coinsGot + "/" + GameData.coins.Count;
     }
 }

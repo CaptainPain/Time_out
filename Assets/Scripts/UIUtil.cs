@@ -11,7 +11,9 @@ public static class UIUtil
 
     public static Font GetFont()
     {
-        if (fontLookedUp) return cachedFont;
+        // If the cached font was destroyed (e.g. Stop→Play without domain
+        // reload), the static still holds a dead reference — look it up again.
+        if (fontLookedUp && cachedFont != null) return cachedFont;
         fontLookedUp = true;
         try { cachedFont = Resources.Load<Font>("DejaVuSans"); } catch { cachedFont = null; }
         if (cachedFont == null)

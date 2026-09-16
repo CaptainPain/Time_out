@@ -1,8 +1,7 @@
 using UnityEngine;
 
 // Giant-build world dressing: the medieval watchtower hazard, the future
-// neon arch, per-timeline shift rings, coins, and Mom's diner (the fixed
-// point across every timeline).
+// neon arch, and Mom's diner (the fixed point across every timeline).
 public static class TimelineProps
 {
     public static void Build(Transform present, Transform medieval, Transform future, Transform shared)
@@ -11,7 +10,6 @@ public static class TimelineProps
         BuildPresentProps(present);
         BuildMedievalProps(medieval);
         BuildFutureProps(future);
-        BuildCoins(shared);
     }
 
     // ---------------- helpers (local copies; WorldBuilder's are private) ----------------
@@ -26,7 +24,7 @@ public static class TimelineProps
         go.name = name;
         NoColliders(go);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = size;
         go.GetComponent<Renderer>().material = mat;
         return go;
@@ -38,7 +36,7 @@ public static class TimelineProps
         go.name = name;
         NoColliders(go);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = new Vector3(radius * 2f, height / 2f, radius * 2f);
         go.GetComponent<Renderer>().material = mat;
         return go;
@@ -49,7 +47,7 @@ public static class TimelineProps
         // Custom cone mesh (unit-sized): scale maps it to radius/height.
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
-        go.transform.position = pos;
+        go.transform.localPosition = pos;
         go.transform.localScale = new Vector3(radius * 2f, height, radius * 2f);
         var mf = go.AddComponent<MeshFilter>();
         var mesh = new Mesh();
@@ -70,53 +68,6 @@ public static class TimelineProps
         return go;
     }
 
-    // ---------------- shift rings ----------------
-    static void BuildRing(Transform parent, Vector3 pos, float radius, Color glow, int timeline)
-    {
-        var root = new GameObject("ShiftRing");
-        root.transform.SetParent(parent, false);
-        root.transform.position = pos;
-        var mat = WorldBuilder.MakeGlow(glow, 2.5f);
-        int segs = 12;
-        float segLen = 2f * Mathf.PI * radius / segs * 1.2f;
-        for (int i = 0; i < segs; i++)
-        {
-            float a = i / (float)segs * Mathf.PI * 2f;
-            var b = Box("Seg" + i,
-                new Vector3(0f, Mathf.Cos(a) * radius, Mathf.Sin(a) * radius),
-                new Vector3(0.55f, segLen, 0.55f), mat, root.transform);
-            b.transform.localPosition = new Vector3(0f, Mathf.Cos(a) * radius, Mathf.Sin(a) * radius);
-            b.transform.localRotation = Quaternion.Euler(-a * Mathf.Rad2Deg, 0f, 0f);
-        }
-        root.AddComponent<RingSpin>();
-        GameData.rings.Add(new RingDef { timeline = timeline, pos = pos, radius = radius, taken = false });
-    }
-
-    // ---------------- coins ----------------
-    static void BuildCoin(Transform parent, Vector3 pos)
-    {
-        var root = new GameObject("Coin");
-        root.transform.SetParent(parent, false);
-        root.transform.position = pos;
-        var gold = WorldBuilder.MakeGlow(new Color(1f, 0.8f, 0.25f), 1.6f);
-        var c = Cyl("C", Vector3.zero, 0.55f, 0.14f, gold, root.transform);
-        c.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        root.AddComponent<CoinSpin>();
-        GameData.coins.Add(new CoinDef { pos = pos, taken = false, node = root.transform });
-    }
-
-    static void BuildCoins(Transform shared)
-    {
-        // Reward arc over the gap.
-        float[] xs = { 90f, 95f, 100f, 105f, 110f };
-        float[] ys = { 11.5f, 12.5f, 13f, 12.5f, 11.5f };
-        for (int i = 0; i < xs.Length; i++)
-            BuildCoin(shared, new Vector3(xs[i], ys[i], 0f));
-        // Landing-line coins.
-        for (int i = 0; i < 4; i++)
-            BuildCoin(shared, new Vector3(130f + i * 4f, 1.6f, 0f));
-    }
-
     // ---------------- PRESENT: Mom's diner ----------------
     static void BuildPresentProps(Transform p)
     {
@@ -130,8 +81,6 @@ public static class TimelineProps
         var sl = UIUtil.MakeWorldLabel("MOM'S DINER", 0.024f, Color.white, 7.4f);
         sl.transform.SetParent(p, false);
         sl.transform.position = new Vector3(20f, 6.2f, 9.7f);
-        // Ring over the gap: thread it for a boost + charge.
-        BuildRing(p, new Vector3(100f, 12f, 0f), 3f, new Color(0.3f, 0.9f, 1f), 0);
     }
 
     // ---------------- MEDIEVAL: watchtower hazard ----------------
@@ -177,7 +126,6 @@ public static class TimelineProps
             flame.GetComponent<Renderer>().material = WorldBuilder.MakeGlow(new Color(1f, 0.55f, 0.15f), 2.5f);
         }
         // Low ring past the landing: ride through it.
-        BuildRing(p, new Vector3(140f, 2.5f, 0f), 2.5f, new Color(1f, 0.7f, 0.25f), 1);
     }
 
     // ---------------- FUTURE: neon arch ----------------
@@ -191,8 +139,7 @@ public static class TimelineProps
         Box("ArchR", new Vector3(100f, 0f, 4.5f), new Vector3(1.4f, 26f, 1.4f), metal, p);
         Box("ArchBeam", new Vector3(100f, 13.4f, 0f), new Vector3(1.4f, 1.4f, 10.4f), metal, p);
         Box("ArchGlow", new Vector3(100f, 12.5f, 0f), new Vector3(0.5f, 0.5f, 9f), cyan, p);
-        // Thread the arch ring for a boost + charge.
-        BuildRing(p, new Vector3(100f, 12f, 0f), 3f, new Color(1f, 0.3f, 0.85f), 2);
+        // Thread the arch ring for a pendant charge.
         // Holo billboards.
         HoloBillboard(p, new Vector3(58f, 8f, -8f), "TIME OUT", new Color(0.3f, 0.9f, 1f));
         HoloBillboard(p, new Vector3(150f, 7f, -9f), "JACK WAS HERE", new Color(1f, 0.4f, 0.85f));
@@ -216,23 +163,5 @@ public static class TimelineProps
         sl.transform.SetParent(p, false);
         sl.transform.position = pos + new Vector3(0f, 0f, -0.4f);
         sl.transform.rotation = Quaternion.Euler(0f, 12f, 0f);
-    }
-}
-
-// Slow in-plane spin for shift rings.
-public class RingSpin : MonoBehaviour
-{
-    void Update()
-    {
-        transform.Rotate(50f * Time.deltaTime, 0f, 0f);
-    }
-}
-
-// Coin shimmer spin.
-public class CoinSpin : MonoBehaviour
-{
-    void Update()
-    {
-        transform.Rotate(0f, 140f * Time.deltaTime, 0f);
     }
 }

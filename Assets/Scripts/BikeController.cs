@@ -23,6 +23,14 @@ public class BikeController : MonoBehaviour
     const float MaxLandFall = 27f;    // fastest survivable vertical landing
     const float MaxLandTilt = 0.9f;   // radians of pitch error at landing
 
+    // Suspension: independent front/rear spring + damper (v8). The wheels
+    // absorb landings and bumps; the chassis stays level like a real bike.
+    public float suspF, suspR; // 0..1 compression
+    float suspVelF, suspVelR;
+    const float SuspSpring = 160f;
+    const float SuspDamp = 18f;
+    const float SuspImpulse = 0.055f; // compression velocity per unit of fall speed
+
     BikeVisual visual;
     float checkpointTimer;
     float wheelieBonus;
@@ -41,6 +49,8 @@ public class BikeController : MonoBehaviour
         pitch = 0f;
         grounded = true;
         wheelie = false;
+        suspF = suspR = 0f;
+        suspVelF = suspVelR = 0f;
         checkpoint = pos;
         checkpointTimer = 0f;
     }
@@ -82,8 +92,10 @@ public class BikeController : MonoBehaviour
                 float dirX = 1f / n, dirY = slope / n;
 
                 float accel = -Gravity * dirY; // gravity along the slope
-                if (gas) accel += EngineAccel + wheelieBonus;
-                if (brake) accel -= (vel.x > 0.5f ? BrakeDecel : EngineAccel * 0.7f);
+                // Surface grip: gravel and dirt reduce acceleration.
+                float grip = SurfaceManager.Grip(SurfaceManager.At(p.x));
+                if (gas) accel += (EngineAccel + wheelieBonus) * grip;
+                if (brake) accel -= (vel.x > 0.5f ? BrakeDecel : EngineAccel * 0.7f) * grip;
                 if (!gas && !brake) accel -= vel.x * 0.35f; // rolling drag
 
                 vel.x = Mathf.Clamp(vel.x + dirX * accel * dt, -MaxReverse, MaxSpeed);
@@ -165,7 +177,10 @@ public class BikeController : MonoBehaviour
                 grounded = true;
                 wheelie = false;
                 transform.position = p;
-                visual.KickSuspension(fall);
+                // Landing impulse: compress the suspension like real shocks.
+                float imp = Mathf.Min(fall * SuspImpulse, 1.2f);
+                suspVelF += imp;
+                suspVelR += imp * 0.85f;
                 AudioDirector.PlayLand();
                 if (GameManager.Instance != null && GameManager.Instance.cameraRig != null)
                     GameManager.Instance.cameraRig.AddShake(Mathf.Clamp01(fall / 20f) * 0.6f);
@@ -185,49 +200,38 @@ public class BikeController : MonoBehaviour
             GameManager.Instance.Complete();
 
         float leanVis = (leanB ? 1f : 0f) - (leanF ? 1f : 0f);
-        visual.SetFrame(leanVis, wheelie, grounded, vel.magnitude, dt);
+        float foreAft = (gas ? 1f : 0f) - (brake ? 1f : 0f);
+        float gyHere = grounded ? WorldBuilder.GetGroundY(p.x) : float.NaN;
+        UpdateSuspension(dt, gyHere);
+        visual.SetFrame(leanVis, wheelie, grounded, vel.magnitude, dt, foreAft);
+    }
+
+    // Spring + damper integration. Critically damped-ish: compresses on hits,
+    // settles fast, never pogo-sticks. Terrain bumps feed through the wheels
+    // instead of jolting the chassis.
+    void UpdateSuspension(float dt, float gyNow)
+    {
+        suspVelF += (-SuspSpring * suspF - SuspDamp * suspVelF) * dt;
+        suspVelR += (-SuspSpring * suspR - SuspDamp * suspVelR) * dt;
+        suspF = Mathf.Clamp01(suspF + suspVelF * dt);
+        suspR = Mathf.Clamp01(suspR + suspVelR * dt);
+        if (suspF >= 1f) suspVelF = Mathf.Min(suspVelF, 0f);
+        if (suspR >= 1f) suspVelR = Mathf.Min(suspVelR, 0f);
+
+        if (!float.IsNaN(gyNow))
+        {
+            Vector3 p = transform.position;
+            float gyF = WorldBuilder.GetGroundY(p.x + 0.72f);
+            float gyR = WorldBuilder.GetGroundY(p.x - 0.72f);
+            if (!float.IsNaN(gyF)) suspVelF += (gyF - gyNow) * 22f * dt;
+            if (!float.IsNaN(gyR)) suspVelR += (gyR - gyNow) * 22f * dt;
+        }
+        visual.SetSuspension(suspF, suspR);
     }
 
     void CheckWorld(Vector3 p)
     {
         int ti = (int)TimelineManager.Active;
-        // Shift rings: thread one for a boost and a pendant charge.
-        for (int i = 0; i < GameData.rings.Count; i++)
-        {
-            var r = GameData.rings[i];
-            if (r.taken || r.timeline != ti) continue;
-            if (Mathf.Abs(p.x - r.pos.x) < 1.5f)
-            {
-                float dy = p.y - r.pos.y, dz = p.z - r.pos.z;
-                if (dy * dy + dz * dz < r.radius * r.radius)
-                {
-                    r.taken = true;
-                    GameData.rings[i] = r;
-                    GameData.ringsHit++;
-                    TimelineManager.AddCharge();
-                    vel *= 1.22f;
-                    if (vel.x > MaxSpeed) vel.x = MaxSpeed;
-                    AudioDirector.PlayRing();
-                    if (GameManager.Instance != null && GameManager.Instance.pendantFx != null)
-                        GameManager.Instance.pendantFx.RingBurst(p);
-                }
-            }
-        }
-        // Coins.
-        for (int i = 0; i < GameData.coins.Count; i++)
-        {
-            var c = GameData.coins[i];
-            if (c.taken) continue;
-            float dx = p.x - c.pos.x, dy = p.y - c.pos.y, dz = p.z - c.pos.z;
-            if (dx * dx + dy * dy + dz * dz < 2.9f)
-            {
-                c.taken = true;
-                GameData.coins[i] = c;
-                if (c.node != null) c.node.gameObject.SetActive(false);
-                GameData.coinsGot++;
-                AudioDirector.PlayCoin();
-            }
-        }
         // Watchtowers (medieval): clip one and you're wrecked.
         for (int i = 0; i < GameData.towers.Count; i++)
         {
@@ -238,6 +242,13 @@ public class BikeController : MonoBehaviour
                 Crash();
                 return;
             }
+        }
+        // Modern obstacles (present): barrels, parked cars, pallets.
+        var hit = ObstacleManager.CheckHit(p);
+        if (hit.HasValue)
+        {
+            Crash();
+            return;
         }
     }
 
