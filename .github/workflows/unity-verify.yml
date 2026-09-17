@@ -13,16 +13,20 @@
 #   4. Uploads screenshots + results.json as the `verify-output` artifact,
 #      which Spike downloads, inspects, and iterates on — no human needed.
 #
-# License: GameCI personal-license flow. The UNITY_LICENSE secret holds the contents of
-# your Unity_lic.ulf, and GameCI ALSO requires UNITY_EMAIL + UNITY_PASSWORD —
-# without all three it refuses to attempt activation at all ('strategy could not be
-# determined'). The .ulf alone is not enough.
-# NOTE 2026-09-16: the account login itself is what Unity rejected (HTTP 400 on
-# core.cloud.unity3d.com/api/login) in the first run — the .ulf was fine, the
-# credentials were not. Likely causes: the Unity ID signs in via Google/Apple SSO
-# (no Unity password exists), 2FA, or a stale/wrong password in the secret.
-# Fix the account side, then re-run; no workflow change needed.
-# See https://game.ci/docs/github/activation
+# License: game-ci/unity-builder@v4 CANNOT do personal-license (.ulf) activation at all.
+# Verified 2026-09-17 against the v4 source: its image-environment-factory never forwards
+# UNITY_LICENSE into the container, and dist/.../steps/activate.sh has no .ulf branch —
+# only UNITY_SERIAL (+email/password) and license-server are implemented. The error text
+# mentioning UNITY_LICENSE is stale. So we bypass GameCI activation entirely:
+#   1. The "Install Unity license" step writes the UNITY_LICENSE secret (the contents of
+#      your Unity_lic.ulf, CR-stripped) to the host path the builder mounts as /root,
+#      which is the standard Linux Unity license location
+#      (/root/.local/share/unity3d/Unity/Unity_lic.ulf). A .ulf IS the activated license,
+#      so no Unity account login is needed at all.
+#   2. The builder runs with skipActivation: true, so activate.sh is never executed.
+# No email/password is used anywhere. If Unity ever rejects the license (e.g. you
+# regenerated it), re-paste C:\ProgramData\Unity\Unity_lic.ulf into the UNITY_LICENSE
+# repo secret and re-run. Docs (still describe the old flow): https://game.ci/docs/github/activation
 name: Unity verify (build/test/fix loop)
 
 on:
@@ -58,12 +62,17 @@ jobs:
           restore-keys: |
             Library-
 
+      - name: Install Unity license
+        env:
+          UNITY_LICENSE_CONTENT: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          LICENSE_DIR="$RUNNER_TEMP/_github_home/.local/share/unity3d/Unity"
+          mkdir -p "$LICENSE_DIR"
+          printf '%s' "$UNITY_LICENSE_CONTENT" | tr -d '\r' > "$LICENSE_DIR/Unity_lic.ulf"
+          ls -la "$LICENSE_DIR"
+
       - name: Run Unity verification
         uses: game-ci/unity-builder@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneLinux64
           buildMethod: TimeOutCI.Verify
@@ -72,6 +81,8 @@ jobs:
           # Screenshots need a real graphics device (no -nographics).
           enableGpu: true
           versioning: None
+          # GameCI v4 cannot activate personal licenses; the .ulf is pre-installed above.
+          skipActivation: true
 
       - name: Upload verification output
         if: always()
