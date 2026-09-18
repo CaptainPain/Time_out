@@ -72,6 +72,12 @@ jobs:
           LICENSE_DIR="$RUNNER_TEMP/_github_home/.local/share/unity3d/Unity"
           mkdir -p "$LICENSE_DIR"
           printf '%s' "$UNITY_LICENSE_CONTENT" | tr -d '\r' > "$LICENSE_DIR/Unity_lic.ulf"
+          BYTES=$(wc -c < "$LICENSE_DIR/Unity_lic.ulf")
+          echo "License file bytes: $BYTES"
+          if [ "$BYTES" -lt 1000 ]; then
+            echo "::error::UNITY_LICENSE secret is only $BYTES bytes - expected a multi-KB .ulf file. Re-paste the full contents of Unity_lic.ulf into the UNITY_LICENSE repo secret."
+            exit 1
+          fi
           ls -la "$LICENSE_DIR"
 
       - name: Run Unity verification
