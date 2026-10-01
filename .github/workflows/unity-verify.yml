@@ -13,23 +13,32 @@
 #   4. Uploads screenshots + results.json as the `verify-output` artifact,
 #      which Spike downloads, inspects, and iterates on — no human needed.
 #
-# License: game-ci/unity-builder@v4's personal-license path is broken for this .ulf.
-# Verified 2026-09-17 against the v4 source (dist/index.js): the node side reads
-# UNITY_LICENSE and tries to extract a serial from the <DeveloperData Value="..."/>
-# element (getSerialFromLicenseFile). For our .ulf that extraction silently yields an
-# empty serial, so the container got no UNITY_SERIAL and activate.sh died with
-# "strategy could not be determined". The .ulf itself is fine — a .ulf IS the activated
-# license, and the Unity editor reads it directly from the standard Linux location.
-# So we bypass GameCI activation entirely:
-#   1. The "Install Unity license" step writes the UNITY_LICENSE secret (your
-#      Unity_lic.ulf contents, CR-stripped) to the host path the builder mounts as
-#      /root, i.e. /root/.local/share/unity3d/Unity/Unity_lic.ulf in the container.
-#   2. The builder still gets UNITY_LICENSE in env so the node-side "Missing Unity
-#      License File" check passes, but runs with skipActivation: true, so activate.sh
-#      never executes and the empty extracted serial is never used.
-# No email/password is needed anywhere. If Unity ever rejects the license (e.g. you
-# regenerated it), re-paste C:\ProgramData\Unity\Unity_lic.ulf into the UNITY_LICENSE
-# repo secret and re-run. Docs (describe the old flow): https://game.ci/docs/github/activation
+# License: the .ulf is pre-installed by the "Install Unity license" step and the
+# builder runs with skipActivation: true, so GameCI never activates anything.
+#
+# CRITICAL (verified 2026-10-01 against game-ci/unity-builder@v4 source, run
+# 36919330154): GameCI extracts the serial from UNITY_LICENSE
+# (getSerialFromLicenseFile) and passes it into the container as UNITY_SERIAL.
+# The container entrypoint randomizes /etc/machine-id whenever UNITY_SERIAL
+# starts with "F" (every personal-license serial does). A randomized machine ID
+# makes Unity's licensing client report a different Machine Id on every run, so
+# a .ulf bound to ANY real machine resolves zero entitlements
+# ("Found 0 entitlement groups and 0 free entitlements", exit code 5) — exactly
+# what run 14 hit with a Hub-generated .ulf (2533 bytes, correctly installed).
+#
+# Fix: pass UNITY_SERIAL=<placeholder> (any value NOT starting with "F") so
+# GameCI skips the serial extraction and the entrypoint leaves the image's
+# baked-in machine ID alone. The placeholder is never used for activation
+# (skipActivation is true, so activate.sh never runs) — the real serial stays
+# inside the .ulf where Unity reads it.
+#
+# The .ulf in the UNITY_LICENSE secret MUST be bound to the container's stable
+# machine identity. Generate it with the "Request Unity activation file"
+# workflow (manual .alf -> https://license.unity3d.com/manual -> .ulf), NOT via
+# Unity Hub on a dev PC: a Hub .ulf is bound to the PC's machine ID and CI will
+# reject it. If the game-ci image ever changes its baked-in machine ID (new
+# rolling image version), repeat the activation flow to rebind.
+# Docs (describe the old flow): https://game.ci/docs/github/activation
 name: Unity verify (build/test/fix loop)
 
 on:
@@ -83,9 +92,15 @@ jobs:
       - name: Run Unity verification
         uses: game-ci/unity-builder@v4
         env:
-          # Satisfies the action's node-side license presence check; the serial it tries
-          # to extract from this is unused because skipActivation is true below.
+          # The pre-installed .ulf above; kept so the action's node-side license
+          # presence check passes. GameCI will NOT extract a serial from it
+          # because UNITY_SERIAL below is set (see header comment).
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          # Placeholder, NOT a real serial. Stops GameCI from extracting the
+          # F-series serial out of UNITY_LICENSE, which would make the container
+          # entrypoint randomize /etc/machine-id and invalidate the .ulf.
+          # Must not start with "F". Never used for activation (skipActivation).
+          UNITY_SERIAL: preinstalled-personal-ulf
         with:
           targetPlatform: StandaloneLinux64
           buildMethod: TimeOutCI.Verify
@@ -94,7 +109,7 @@ jobs:
           # Screenshots need a real graphics device (no -nographics).
           enableGpu: true
           versioning: None
-          # GameCI v4 cannot activate personal licenses; the .ulf is pre-installed above.
+          # GameCI activation is bypassed entirely; the .ulf is pre-installed.
           skipActivation: true
 
       - name: Upload verification output
